@@ -1,22 +1,9 @@
-const util = require('minecraft-server-util');
+const minecraftServer = require("./serverCommands");
 const tmi = require('tmi.js');
 require('dotenv').config();
-
-
-function sendCommand(commande) {
-    const client = new util.RCON('localhost', { port: 25575, enableSRV: true, timeout: 5000, password: 'zebi' });
-    client.on('output', (message) => console.log(message));
-
-    client.connect()
-        .then(async() => {
-            await client.run(commande);
-
-            client.close();
-        })
-        .catch((error) => {
-            throw error;
-        });
-}
+const fs = require("fs");
+const util = require('util');
+const { sendCommand } = require("./serverCommands");
 
 const opts = {
     identity: {
@@ -35,6 +22,8 @@ client.on('connected', onConnectedHandler);
 // Connect to Twitch:
 client.connect();
 
+let commands;
+
 // Called every time a message comes in
 function onMessageHandler(target, context, msg, self) {
     if (self) { return; } // Ignore messages from the bot
@@ -42,14 +31,22 @@ function onMessageHandler(target, context, msg, self) {
     // Remove whitespace from chat message
     const commandName = msg.trim();
 
-    // If the command is known, let's execute it
-    if (commandName === 'hummm la soupe') {
-        //client.say(target, `commande reçue`);
+    if (commands[commandName]) {
+        sendCommand(commands[commandName]);
         console.log(`* Executed ${commandName} command`);
-        sendCommand("give @a minecraft:beetroot_soup");
     }
 }
 // Called every time the bot connects to Twitch chat
-function onConnectedHandler(addr, port) {
+async function onConnectedHandler(addr, port) {
     console.log(`* Connected to ${addr}:${port}`);
+    await loadCommands().then(data => {
+        commands = JSON.parse(data);
+    });
+}
+
+// Convert fs.readFile into Promise version of same    
+const readFile = util.promisify(fs.readFile);
+
+function loadCommands() {
+    return readFile('./commandes.json', 'utf8');
 }
